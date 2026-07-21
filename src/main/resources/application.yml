@@ -1,0 +1,47 @@
+micronaut:
+  application:
+    name: asset-service
+  server:
+    port: 8083 # Assigned port for IT Asset Management Service
+    cors:
+      enabled: true
+  
+  # Reactive Jackson/Serde configurations for AOT performance
+  serde:
+    jackson:
+      serialization:
+        writeDatesAsTimestamps: false # Ensures ISO-8601 compliance for forensic timestamps
+      deserialization:
+        failOnUnknownProperties: false
+
+  # Routing for static resources (Swagger UI & OpenAPI Specifications)
+  router:
+    static-resources:
+      swagger:
+        paths: classpath:META-INF/swagger
+        mapping: /swagger/**
+      redoc:
+        paths: classpath:META-INF/swagger/views/redoc
+        mapping: /redoc/**
+
+# MongoDB Reactive Driver Configuration (NASA Standard)
+mongodb:
+  uri: ${MONGODB_URI:mongodb://localhost:27017/asset_inventory}
+  # CRITICAL: Ensures UUIDs are stored as BSON Binary Subtype 4
+  uuid-representation: STANDARD
+
+# Lifecycle & Observability Endpoints
+endpoints:
+  all:
+    enabled: true
+    sensitive: false # Controlled exposure for SRE/Kubernetes probes
+  health:
+    enabled: true
+    details-visible: ANONYMOUS
+
+# Log Level Management for High-Assurance Monitoring
+logging:
+  level:
+    com.thinklab: DEBUG
+    io.micronaut.http.client: INFO
+    org.mongodb.driver: INFO

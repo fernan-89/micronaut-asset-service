@@ -1,0 +1,192 @@
+{
+	"info": {
+		"name": "Asset Service - Mission Critical Suite",
+		"description": "Suíte E2E automatizada para gestão de ativos de TI. Valida o fluxo: Provisionamento -> Prontidão -> Deploy -> Manutenção -> Descomissionamento terminal.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "00. Infrastructure & Observability",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/health"
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Service is UP', () => pm.expect(pm.response.json().status).to.eql('UP'));"
+								]
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "01. Asset Lifecycle (Happy Path)",
+			"item": [
+				{
+					"name": "01. Provision New Asset",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+									"const data = pm.response.json();",
+									"pm.environment.set('assetId', data.id);",
+									"pm.test('ID captured and valid UUID', () => pm.expect(data.id).to.have.lengthOf(36));",
+									"pm.test('Initial state is PROVISIONED', () => pm.expect(data.status).to.eql('PROVISIONED'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"url": "{{base_url}}/assets",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tenantId\": \"{{tenantId}}\",\n    \"name\": \"MacBook Pro 16 M3 Max\",\n    \"category\": \"LAPTOP\",\n    \"serialNumber\": \"SN-NASA-{{$randomInt}}\",\n    \"specifications\": {\n        \"CPU\": \"M3 Max\",\n        \"RAM\": \"64GB\",\n        \"SSD\": \"2TB\"\n    },\n    \"executorId\": \"{{executorId}}\"\n}",
+							"options": { "raw": { "language": "json" } }
+						}
+					}
+				},
+				{
+					"name": "02. Get Asset Full View (360°)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+									"const data = pm.response.json();",
+									"pm.test('Contains Asset Aggregate', () => pm.expect(data.asset).to.exist);",
+									"pm.test('Contains Audit Trail', () => pm.expect(data.auditLogs).to.be.an('array').with.length.at.least(1));",
+									"pm.test('Forensic ID Match', () => pm.expect(data.auditLogs.assetId).to.eql(pm.environment.get('assetId')));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/assets/{{assetId}}"
+					}
+				},
+				{
+					"name": "03. Deploy Asset to User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+									"const data = pm.response.json();",
+									"pm.test('Status is DEPLOYED', () => pm.expect(data.status).to.eql('DEPLOYED'));",
+									"pm.test('Assigned User Match', () => pm.expect(data.assignedToUserId).to.exist);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"url": "{{base_url}}/assets/{{assetId}}/deploy",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"assignedToUserId\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"locationId\": \"DC-SPO-RACK-04\",\n    \"executorId\": \"{{executorId}}\"\n}",
+							"options": { "raw": { "language": "json" } }
+						}
+					}
+				},
+				{
+					"name": "04. Decommission Asset (Terminal)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Terminal Status Validated', () => pm.expect(pm.response.json().status).to.eql('DECOMMISSIONED'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"url": "{{base_url}}/assets/{{assetId}}",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"executorId\": \"{{executorId}}\",\n    \"reason\": \"Fim do ciclo de vida útil - Hardware Obsoleto.\"\n}",
+							"options": { "raw": { "language": "json" } }
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "02. Resilience & Edge Cases",
+			"item": [
+				{
+					"name": "Fail: Duplicate Serial Number",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 409 Conflict', () => pm.response.to.have.status(409));",
+									"pm.test('Semantic Error Code', () => pm.expect(pm.response.json().error_code).to.eql('ASSET_DUPLICATE_IDENTIFIER'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"url": "{{base_url}}/assets",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tenantId\": \"{{tenantId}}\",\n    \"name\": \"Duplicate Asset\",\n    \"category\": \"LAPTOP\",\n    \"serialNumber\": \"SN-NASA-FIXED-001\",\n    \"specifications\": {},\n    \"executorId\": \"admin\"\n}",
+							"options": { "raw": { "language": "json" } }
+						}
+					}
+				}
+			]
+		}
+	]
+}
+
+🛠️ 2. Asset Service - Environment (.postman_environment.json)
+
+{
+	"name": "ThinkLab Asset - Local Env",
+	"values": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8083",
+			"type": "default",
+			"enabled": true
+		},
+		{
+			"key": "tenantId",
+			"value": "79e83370-d699-4d28-817f-acc401490ed5",
+			"type": "default",
+			"enabled": true
+		},
+		{
+			"key": "executorId",
+			"value": "staff-engineer-01",
+			"type": "default",
+			"enabled": true
+		},
+		{
+			"key": "assetId",
+			"value": "",
+			"type": "any",
+			"enabled": true
+		}
+	]
+}

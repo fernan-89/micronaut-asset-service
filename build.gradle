@@ -1,0 +1,100 @@
+plugins {
+    id("io.micronaut.application") version "4.4.2"
+    id("io.micronaut.aot") version "4.4.2"
+    id("com.gradleup.shadow") version "8.3.0"
+}
+
+version = "0.1"
+group = "com.thinklab"
+
+// [MANTIDO] Excelente correção: Injeção de variável de compatibilidade
+// que o Shadow Plugin exige no ecossistema do Gradle 8+
+ext.mainClassName = "com.thinklab.Application"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // 🛡️ BOM ENFORCER (CRÍTICO)
+    // Blinda o projeto contra a injeção acidental de artefatos 5.x (que exigem Java 25).
+    // Delega ao Micronaut a responsabilidade de gerenciar as versões compatíveis de todas as libs abaixo.
+    implementation platform("io.micronaut.platform:micronaut-platform:4.4.2")
+
+    // --- Annotation Processors (Ordem de compilação) ---
+    compileOnly "org.projectlombok:lombok:1.18.36"
+    annotationProcessor "org.projectlombok:lombok:1.18.36"
+
+    annotationProcessor "io.micronaut.data:micronaut-data-document-processor"
+    annotationProcessor "io.micronaut:micronaut-http-validation"
+    annotationProcessor "io.micronaut.serde:micronaut-serde-processor"
+    annotationProcessor "io.micronaut.validation:micronaut-validation-processor"
+    annotationProcessor "io.micronaut.openapi:micronaut-openapi"
+
+    // --- Core & Web ---
+    implementation "io.micronaut:micronaut-management"
+    implementation "io.micronaut:micronaut-http-client"
+    implementation "io.micronaut.serde:micronaut-serde-jackson" // AOT JSON Serialization
+    implementation "io.micronaut.validation:micronaut-validation"
+
+    // --- OpenAPI / Swagger ---
+    compileOnly "io.swagger.core.v3:swagger-annotations"
+
+    // --- Infrastructure (Database & Reactive Engine) ---
+    implementation "io.micronaut.data:micronaut-data-mongodb"
+    implementation "io.projectreactor:reactor-core"
+
+    // MongoDB Drivers (O BOM Enforcer acima definirá a versão correta automaticamente)
+    implementation "org.mongodb:mongodb-driver-reactivestreams"
+    implementation "org.mongodb:mongodb-driver-sync"
+    implementation "org.mongodb:mongodb-driver-core"
+
+    // --- Logging & Runtime ---
+    runtimeOnly "ch.qos.logback:logback-classic"
+    runtimeOnly "org.yaml:snakeyaml"
+
+    // --- Testing ---
+    testImplementation "io.micronaut:micronaut-http-client"
+    testImplementation "io.projectreactor:reactor-test"
+    testImplementation "org.mockito:mockito-core"
+    testImplementation "org.mockito:mockito-junit-jupiter"
+    testImplementation "org.junit.jupiter:junit-jupiter-params"
+}
+
+application {
+    mainClass = "com.thinklab.Application"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+graalvmNative {
+    toolchainDetection = false
+    binaries {
+        main {
+            buildArgs.add("-H:+SharedArenaSupport")
+        }
+    }
+}
+
+micronaut {
+    runtime("netty")
+    testRuntime("junit5")
+    processing {
+        incremental(true)
+        annotations("com.thinklab.*")
+    }
+    aot {
+        optimizeServiceLoading = false
+        convertYamlToJava = false
+        precomputeOperations = true
+        cacheEnvironment = true
+        optimizeClassLoading = true
+        deduceEnvironment = true
+        optimizeNetty = true
+        replaceLogbackXml = true
+    }
+}
