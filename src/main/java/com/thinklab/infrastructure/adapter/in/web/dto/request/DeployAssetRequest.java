@@ -1,53 +1,52 @@
 package com.thinklab.infrastructure.adapter.in.web.dto.request;
 
-import com.thinklab.application.usecase.command.DeployAssetCommand;
 import io.micronaut.core.annotation.Introspected;
+import io.micronaut.core.annotation.Nullable;
 import io.micronaut.serde.annotation.Serdeable;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.annotation.Nonnull;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+
 import java.util.UUID;
 
 /**
- * Infrastructure DTO: Represents the HTTP request payload for deploying an IT Asset.
+ * Request DTO: Payload for deploying an IT asset to a user or physical location.
  */
 @Serdeable
 @Introspected
-@Schema(
-        name = "DeployAssetRequest",
-        description = "Payload required to assign an asset to a user and physical location."
-)
+@Schema(name = "DeployAssetRequest", description = "Payload required to deploy an asset, assigning ownership and location context.")
 public record DeployAssetRequest(
-        @NotNull(message = "Target user ID is mandatory for deployment")
-        @Schema(description = "UUID of the assigned user", example = "550e8400-e29b-41d4-a716-446655440000")
+        @Nullable
+        @Schema(description = "UUID of the user taking ownership of the hardware", example = "550e8400-e29b-41d4-a716-446655440000")
         UUID assignedToUserId,
 
-        @NotBlank(message = "Location identifier is mandatory for inventory tracking")
-        @Schema(description = "Site or Rack identifier", example = "SPO-DC-01-RACK-04")
+        @Nullable
+        @Schema(description = "Identifier of the physical location or rack", example = "DC-SPO-RACK-04")
         String locationId,
 
-        @NotBlank(message = "Executor identification is mandatory for forensic auditing")
-        @Schema(description = "Authorized agent ID", example = "admin-sys-01")
+        @NotBlank(message = "Executor identification is mandatory")
+        @Schema(description = "Identifier of the executor performing the deployment", example = "staff-engineer-01")
         String executorId,
 
-        @NotBlank(message = "Deployment reason is mandatory for compliance")
-        @Schema(description = "Business justification for this deployment", example = "New employee onboarding")
+        @NotBlank
+        @Schema(description = "Mandatory justification for compliance tracking", example = "Routine hardware allocation for engineering team upgrade")
         String reason
 ) {
-
     /**
-     * Mapper Pattern: Projects the Infrastructure DTO into a validated Application Command.
+     * Converts the web request DTO into an application-layer command.
      *
-     * @param assetId The system-generated UUID of the target asset.
-     * @return A validated {@link DeployAssetCommand} instance.
+     * @param assetId The target asset UUID from the path variable.
+     * @return The corresponding command object.
      */
-    public DeployAssetCommand toCommand(UUID assetId) {
-        return new DeployAssetCommand(
+    public com.thinklab.application.usecase.command.DeployAssetCommand toCommand(@Nonnull UUID assetId) {
+        // A ordem dos parâmetros foi ajustada para casar com a assinatura do domínio:
+        // (assetId, executorId, assignedToUserId, locationId, reason)
+        return new com.thinklab.application.usecase.command.DeployAssetCommand(
                 assetId,
-                this.executorId,
-                this.assignedToUserId,
-                this.locationId,
-                this.reason
+                executorId,
+                assignedToUserId,
+                locationId,
+                reason
         );
     }
 }

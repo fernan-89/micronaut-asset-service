@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -28,7 +29,6 @@ import java.util.UUID;
 @Singleton
 public class DeployAssetInteractor implements DeployAssetUseCase {
 
-    // Declaração explícita do Logger substituindo o @Slf4j
     private static final Logger log = LoggerFactory.getLogger(DeployAssetInteractor.class);
 
     private final AssetRepositoryPort assetRepository;
@@ -54,15 +54,23 @@ public class DeployAssetInteractor implements DeployAssetUseCase {
                     return Mono.error(new AssetNotFoundException(command.assetId()));
                 }))
                 .map(asset -> {
-                    // Conversão segura da String do Command para o UUID que o Domínio espera
-                    UUID locationUuid = (command.locationId() != null && !command.locationId().isBlank())
-                            ? UUID.fromString(command.locationId())
-                            : null;
+                    // Resolve o código da localidade em um UUID.
+                    // Se a string não for um formato UUID válido (ex: "DC-SPO-RACK-04"),
+                    // gera um UUID determinístico baseado no nome (UUID v3).
+                    UUID locationUuid = null;
+                    if (command.locationId() != null && !command.locationId().isBlank()) {
+                        try {
+                            locationUuid = UUID.fromString(command.locationId());
+                        } catch (IllegalArgumentException e) {
+                            log.debug("Location ID is not a standard UUID format. Generating name-based UUID for: {}", command.locationId());
+                            locationUuid = UUID.nameUUIDFromBytes(command.locationId().getBytes(StandardCharsets.UTF_8));
+                        }
+                    }
 
                     // Domain FSM handles validation and state change
                     return asset.deploy(command.assignedToUserId(), locationUuid);
                 })
-                .flatMap(updatedAsset -> assetRepository.update(updatedAsset)) // Referência corrigida para evitar inferência de Object
+                .flatMap(updatedAsset -> assetRepository.update(updatedAsset))
                 .flatMap(deployedAsset -> registerForensicAudit(deployedAsset, command.executorId(), command.reason())
                         .thenReturn(deployedAsset))
                 .doOnSubscribe(s -> log.info("[ACTION: DEPLOY_ASSET] [ID: {}] - Initiating deployment for [USER: {}] [LOC: {}].",
@@ -90,7 +98,6 @@ public class DeployAssetInteractor implements DeployAssetUseCase {
                 "SUCCESS",
                 executorId,
                 Map.of(
-                        // Corrigido: o Domínio usa apenas assignedTo()
                         "assignedToUserId", Objects.toString(asset.assignedTo(), "N/A"),
                         "locationId", Objects.toString(asset.locationId(), "N/A"),
                         "reason", reason,

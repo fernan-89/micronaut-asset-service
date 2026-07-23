@@ -104,8 +104,9 @@ public record Asset(
      */
     public Asset markAsReady() {
         this.status.validateTransitionTo(AssetStatus.READY_FOR_DEPLOY);
+        // Retornando 'version' sem o '+ 1'
         return new Asset(id, tenantId, name, category, AssetStatus.READY_FOR_DEPLOY,
-                serialNumber, specifications, assignedTo, locationId, createdAt, Instant.now(), version + 1);
+                serialNumber, specifications, assignedTo, locationId, createdAt, Instant.now(), version);
     }
 
     /**
@@ -113,8 +114,9 @@ public record Asset(
      */
     public Asset deploy(@Nullable UUID userId, @Nullable UUID locationId) {
         this.status.validateTransitionTo(AssetStatus.DEPLOYED);
+        // Retornando 'version' sem o '+ 1'
         return new Asset(id, tenantId, name, category, AssetStatus.DEPLOYED,
-                serialNumber, specifications, userId, locationId, createdAt, Instant.now(), version + 1);
+                serialNumber, specifications, userId, locationId, createdAt, Instant.now(), version);
     }
 
     /**
@@ -122,8 +124,9 @@ public record Asset(
      */
     public Asset sendToMaintenance() {
         this.status.validateTransitionTo(AssetStatus.UNDER_MAINTENANCE);
+        // Retornando 'version' sem o '+ 1'
         return new Asset(id, tenantId, name, category, AssetStatus.UNDER_MAINTENANCE,
-                serialNumber, specifications, assignedTo, locationId, createdAt, Instant.now(), version + 1);
+                serialNumber, specifications, assignedTo, locationId, createdAt, Instant.now(), version);
     }
 
     /**
@@ -131,7 +134,8 @@ public record Asset(
      */
     public Asset decommission() {
         this.status.validateTransitionTo(AssetStatus.DECOMMISSIONED);
+        // Retornando 'version' sem o '+ 1'
         return new Asset(id, tenantId, name, category, AssetStatus.DECOMMISSIONED,
-                serialNumber, specifications, null, null, createdAt, Instant.now(), version + 1);
+                serialNumber, specifications, null, null, createdAt, Instant.now(), version);
     }
 }
